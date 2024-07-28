@@ -256,6 +256,11 @@ namespace StateMachine
             Error($"No state with Id {stateId} registered.");
             return 0;
         }
+
+        public bool StateExists(string state)
+        {
+            return TryGetState(state, out _);
+        }
         
         #endregion
         
@@ -297,7 +302,7 @@ namespace StateMachine
         private void TransitionToParent(State state)
         {
             // We're exiting a state
-            _currentState.OnExit?.Invoke(_currentState.Id, state.Id);
+            _currentState.OnExit?.Invoke(state.Id);
             _currentState = state;
         }
 
@@ -306,15 +311,15 @@ namespace StateMachine
             // We're entering a state
             var fromState = _currentState;
             _currentState = state;
-            state.OnEnter?.Invoke(fromState, state);
+            state.OnEnter?.Invoke(fromState);
         }
 
         private async UniTask TransitionToParentAsync(State state)
         {
             if (_currentState.OnExitAsync != null)
-                await _currentState.OnExitAsync.Invoke(_currentState, state);
+                await _currentState.OnExitAsync.Invoke(state);
             else
-                _currentState.OnExit?.Invoke(_currentState, state);
+                _currentState.OnExit?.Invoke(state);
             
             _currentState = state;
         }
@@ -325,9 +330,9 @@ namespace StateMachine
             _currentState = state;
 
             if (state.OnEnterAsync != null)
-                await state.OnEnterAsync.Invoke(fromState, state);
+                await state.OnEnterAsync.Invoke(fromState);
             else
-                state.OnEnter?.Invoke(fromState, state);
+                state.OnEnter?.Invoke(fromState);
         }
 
         private static void Error(string error) => Logger.Error(nameof(Machine), error);

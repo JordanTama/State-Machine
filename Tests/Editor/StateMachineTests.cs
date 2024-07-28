@@ -181,26 +181,26 @@ namespace StateMachine
         
         #region State Listeners
 
-        private static void OnEnter(string from, string to)
+        private static void OnEnter(string from)
         {
-            Debug.Log(EnterLog(from, to));
+            Debug.Log(EnterLog(from));
         }
 
-        private static void OnExit(string from, string to)
+        private static void OnExit(string to)
         {
-            Debug.Log(ExitLog(from, to));
+            Debug.Log(ExitLog(to));
         }
 
-        private static async UniTask OnEnterAsync(string from, string to)
+        private static async UniTask OnEnterAsync(string from)
         {
-            Debug.Log(EnterLog(from, to));
+            Debug.Log(EnterLog(from));
             Debug.Log("Waiting one second...");
             await UniTask.Delay(1000);
         }
 
-        private static async UniTask OnExitAsync(string from, string to)
+        private static async UniTask OnExitAsync(string to)
         {
-            Debug.Log(ExitLog(from, to));
+            Debug.Log(ExitLog(to));
             Debug.Log("Waiting one second...");
             await UniTask.Delay(1000);
         }
@@ -209,14 +209,14 @@ namespace StateMachine
         
         #region Utility
 
-        private static string EnterLog(string from, string to)
+        private static string EnterLog(string from)
         {
-            return $"OnEnter: {from} -> {to}";
+            return $"Entering from: {from}";
         }
 
-        private static string ExitLog(string from, string to)
+        private static string ExitLog(string to)
         {
-            return $"OnExit: {from} -> {to}";
+            return $"Exiting to: {to}";
         }
         
         #endregion

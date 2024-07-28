@@ -10,10 +10,10 @@ namespace StateMachine
         public string Id { get; }
         public string Parent { get; }
         
-        public StateChange OnEnter { get; }
-        public StateChange OnExit { get; }
-        public StateChangeAsync OnEnterAsync { get; }
-        public StateChangeAsync OnExitAsync { get; }
+        public StateEnter OnEnter { get; }
+        public StateExit OnExit { get; }
+        public StateEnterAsync OnEnterAsync { get; }
+        public StateExitAsync OnExitAsync { get; }
 
         public IReadOnlyList<string> Children => _children;
 

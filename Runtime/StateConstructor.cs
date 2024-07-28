@@ -10,14 +10,14 @@ namespace StateMachine
         
         public StateConstructor Parent { get; private set; }
         
-        public StateChange OnEnter { get; private set; }
-        public StateChange OnExit { get; private set; }
-        public StateChangeAsync OnEnterAsync { get; private set; }
-        public StateChangeAsync OnExitAsync { get; private set; }
+        public StateEnter OnEnter { get; private set; }
+        public StateExit OnExit { get; private set; }
+        public StateEnterAsync OnEnterAsync { get; private set; }
+        public StateExitAsync OnExitAsync { get; private set; }
 
         internal IReadOnlyList<StateConstructor> Children => _children.AsReadOnly();
 
-        public StateConstructor(string id, StateChange onEnter = null, StateChange onExit = null, StateChangeAsync onEnterAsync = null, StateChangeAsync onExitAsync = null)
+        public StateConstructor(string id, StateEnter onEnter = null, StateExit onExit = null, StateEnterAsync onEnterAsync = null, StateExitAsync onExitAsync = null)
         {
             Id = id;
             _children = new List<StateConstructor>();
