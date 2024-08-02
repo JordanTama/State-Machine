@@ -19,10 +19,6 @@ namespace StateMachine
         public bool Initialized { get; private set; }
         public string CurrentStateId => _currentState?.Id ?? "";
 
-        #region Internal Methods
-        
-        #endregion
-        
         #region IServiceStandard Implementation
 
         public void OnRegistered()
@@ -261,7 +257,21 @@ namespace StateMachine
         {
             return TryGetState(state, out _);
         }
-        
+
+        public StateInfo GetStateInfo(string stateName)
+        {
+            if (TryGetState(stateName, out var state)) 
+                return new StateInfo(state);
+            
+            Error($"No state with Id {stateName} registered.");
+            return default;
+        }
+
+        public IEnumerable<string> GetAllStates()
+        {
+            return _states.Keys;
+        }
+
         #endregion
         
         #region Private methods

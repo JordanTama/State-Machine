@@ -1,0 +1,18 @@
+{
+    "name": "JordanTama.StateMachine.Editor",
+    "rootNamespace": "",
+    "references": [
+        "GUID:3fcfb7625d0721343ab4d277bf84404c",
+        "GUID:f4de1bb1182456b42aa02eeb9aa6b11b",
+        "GUID:f51ebe6a0ceec4240a699833d6309b23"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
