@@ -7,7 +7,7 @@ using Services;
 using UnityEngine;
 using Logger = Logging.Logger;
 
-namespace StateMachine
+namespace JordanTama.StateMachine
 {
     public class Machine : IServiceStandard
     {

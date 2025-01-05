@@ -1,6 +1,6 @@
 ﻿using Cysharp.Threading.Tasks;
 
-namespace StateMachine
+namespace JordanTama.StateMachine
 {
     public delegate void StateEnter(string from);
 

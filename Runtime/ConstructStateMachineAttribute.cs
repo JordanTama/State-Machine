@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace StateMachine
+namespace JordanTama.StateMachine
 {
     [AttributeUsage(AttributeTargets.Method)]
     public class ConstructStateMachineAttribute : Attribute

@@ -1,6 +1,6 @@
 ﻿using System.Linq;
 
-namespace StateMachine
+namespace JordanTama.StateMachine
 {
     public readonly struct StateInfo
     {

@@ -1,11 +1,12 @@
 ﻿using System.Collections;
 using Cysharp.Threading.Tasks;
+using JordanTama.StateMachine;
 using NUnit.Framework;
 using Services;
 using UnityEngine;
 using UnityEngine.TestTools;
 
-namespace StateMachine
+namespace Tests.Editor
 {
     public class StateMachineTests
     {

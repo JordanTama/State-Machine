@@ -1,4 +1,4 @@
-namespace StateMachine
+namespace JordanTama.StateMachine
 {
     public static class Constants
     {

@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using System.Linq;
 
-namespace StateMachine
+namespace JordanTama.StateMachine
 {
     internal class State
     {
