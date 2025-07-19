@@ -29,8 +29,6 @@ namespace JordanTama.StateMachine
             // Get assemblies
             var assemblies = AppDomain.CurrentDomain.GetAssemblies();
 
-            // Get all types
-            IEnumerable<Type> GetTypes(Assembly assembly) => assembly.GetTypes();
             var types = assemblies.SelectMany(GetTypes);
 
             // Get all methods with the correct binding flags
@@ -131,6 +129,10 @@ namespace JordanTama.StateMachine
             // Begin the state machine
             ChangeState(Constants.ROOT_STATE_NAME);
             Initialized = true;
+            return;
+
+            // Get all types
+            IEnumerable<Type> GetTypes(Assembly assembly) => assembly.GetTypes();
         }
 
         public void OnUnregistered()
