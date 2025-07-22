@@ -18,6 +18,13 @@ namespace JordanTama.StateMachine
 
         public bool Initialized { get; private set; }
         public string CurrentStateId => _currentState?.Id ?? "";
+        
+        private bool TestMode { get; }
+
+        public Machine(bool testMode = false)
+        {
+            TestMode = testMode;
+        }
 
         #region IServiceStandard Implementation
 
@@ -29,6 +36,7 @@ namespace JordanTama.StateMachine
             // Get assemblies
             var assemblies = AppDomain.CurrentDomain.GetAssemblies();
 
+            // Get all types
             var types = assemblies.SelectMany(GetTypes);
 
             // Get all methods with the correct binding flags
@@ -36,12 +44,72 @@ namespace JordanTama.StateMachine
             var methods = types.SelectMany(type => type.GetMethods(methodFlags));
 
             // Get the methods with the construction attribute
-            bool HasAttribute(MemberInfo method) => method.GetCustomAttribute<ConstructStateMachineAttribute>() != null;
             var attributedMethods = methods.Where(HasAttribute).ToList();
 
-            // Order the methods
-            string GetDependency(MemberInfo method) =>
-                method.GetCustomAttribute<ConstructStateMachineAttribute>().StateId;
+            // Construct the state machine
+            while (attributedMethods.Count > 0)
+            {
+                // Get all the methods with their dependency ready, and remove from the attributedMethods
+                var hasDependencies = new List<MethodInfo>();
+                for (int i = attributedMethods.Count - 1; i >= 0; i--)
+                {
+                    var method = attributedMethods[i];
+                    
+                    string dependencyId = GetDependency(method);
+                    if (!TryGetConstructor(dependencyId, out _))
+                        continue;
+                    
+                    hasDependencies.Add(method);
+                    attributedMethods.RemoveAt(i);
+                }
+
+                // No methods have their dependency ready - break out of the loop
+                if (hasDependencies.Count <= 0)
+                    break;
+                
+                // Order the methods by their priority
+                var ordered = hasDependencies.OrderBy(GetPriority).ToArray();
+
+                bool hasInvoked = false;
+                foreach (var method in ordered)
+                {
+                    string dependencyName = GetDependency(method);
+                    if (!TryGetConstructor(dependencyName, out var dependencyConstructor))
+                        continue;
+
+                    method.Invoke(null, new object[] {dependencyConstructor});
+                    hasInvoked = true;
+                }
+
+                if (!hasInvoked)
+                    break;
+            }
+
+            if (attributedMethods.Count > 0)
+                Error($"Missing dependencies: {string.Join(", ", attributedMethods.Select(GetDependency))}");
+            
+            RegisterConstructor(baseStateConstructor);
+
+            // Begin the state machine
+            ChangeState(Constants.ROOT_STATE_NAME);
+            Initialized = true;
+            return;
+
+            IEnumerable<Type> GetTypes(Assembly assembly)
+            {
+                return assembly.GetTypes();
+            }
+
+            bool HasAttribute(MemberInfo method)
+            {
+                var attribute = method.GetCustomAttribute<ConstructStateMachineAttribute>();
+                return attribute != null && !(TestMode && attribute.IgnoreInTests);
+            }
+            
+            string GetDependency(MemberInfo method)
+            {
+                return method.GetCustomAttribute<ConstructStateMachineAttribute>().StateId;
+            }
 
             bool TryGetConstructor(string id, out StateConstructor constructor)
             {
@@ -65,50 +133,10 @@ namespace JordanTama.StateMachine
                 return false;
             }
 
-            // Construct the state machine
-            while (attributedMethods.Count > 0)
+            int GetPriority(MemberInfo method)
             {
-                // Get all the methods with their dependency ready, and remove from the attributedMethods
-                var hasDependencies = new List<MethodInfo>();
-                for (int i = attributedMethods.Count - 1; i >= 0; i--)
-                {
-                    var method = attributedMethods[i];
-                    string dependencyId = GetDependency(method);
-                    if (!TryGetConstructor(dependencyId, out _))
-                        continue;
-                    
-                    hasDependencies.Add(method);
-                    attributedMethods.RemoveAt(i);
-                }
-
-                // No methods have their dependency ready - break out of the loop
-                if (hasDependencies.Count <= 0)
-                    break;
-
-                // Extract the priority from a method
-                int GetPriority(MemberInfo method) =>
-                    method.GetCustomAttribute<ConstructStateMachineAttribute>().Priority;
-                
-                // Order the methods by their priority
-                var ordered = hasDependencies.OrderBy(GetPriority).ToArray();
-
-                bool hasInvoked = false;
-                foreach (var method in ordered)
-                {
-                    string dependencyName = GetDependency(method);
-                    if (!TryGetConstructor(dependencyName, out var dependencyConstructor))
-                        continue;
-
-                    method.Invoke(null, new object[] {dependencyConstructor});
-                    hasInvoked = true;
-                }
-
-                if (!hasInvoked)
-                    break;
+                return method.GetCustomAttribute<ConstructStateMachineAttribute>().Priority;
             }
-
-            if (attributedMethods.Count > 0)
-                Error($"Missing dependencies: {string.Join(", ", attributedMethods.Select(GetDependency))}");
 
             void RegisterConstructor(StateConstructor constructor)
             {
@@ -124,15 +152,6 @@ namespace JordanTama.StateMachine
         
                 _states[id] = new State(constructor);
             }
-            RegisterConstructor(baseStateConstructor);
-
-            // Begin the state machine
-            ChangeState(Constants.ROOT_STATE_NAME);
-            Initialized = true;
-            return;
-
-            // Get all types
-            IEnumerable<Type> GetTypes(Assembly assembly) => assembly.GetTypes();
         }
 
         public void OnUnregistered()

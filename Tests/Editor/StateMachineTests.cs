@@ -40,9 +40,16 @@ namespace Tests.Editor
         [UnitySetUp]
         public IEnumerator Setup()
         {
+            if (Locator.IsRegistered<Machine>())
+            {
+                var task = Locator.Unregister<Machine>();
+                var awaiter = task.GetAwaiter();
+                yield return new WaitUntil(() => awaiter.IsCompleted);
+            }
+            
             if (!Locator.Get(out _machine))
             {
-                _machine = new Machine();
+                _machine = new Machine(testMode: true);
                 Locator.Register(_machine);
             }
             

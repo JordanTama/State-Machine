@@ -7,11 +7,13 @@ namespace JordanTama.StateMachine
     {
         public string StateId { get; }
         public int Priority { get; }
+        public bool IgnoreInTests { get; }
         
-        public ConstructStateMachineAttribute(string stateId = Constants.ROOT_STATE_NAME, int priority = 0)
+        public ConstructStateMachineAttribute(string stateId = Constants.ROOT_STATE_NAME, int priority = 0, bool ignoreInTests = false)
         {
             StateId = stateId;
             Priority = priority;
+            IgnoreInTests = ignoreInTests;
         }
     }
 }
