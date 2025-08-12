@@ -297,7 +297,7 @@ namespace JordanTama.StateMachine
         
         #region Private methods
 
-        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         private static void Initialize()
         {
             var machine = new Machine();
