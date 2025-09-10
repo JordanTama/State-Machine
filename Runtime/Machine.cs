@@ -137,21 +137,6 @@ namespace JordanTama.StateMachine
             {
                 return method.GetCustomAttribute<ConstructStateMachineAttribute>().Priority;
             }
-
-            void RegisterConstructor(StateConstructor constructor)
-            {
-                foreach (var child in constructor.Children)
-                    RegisterConstructor(child);
-                
-                string id = constructor.Id;
-                if (_states.ContainsKey(id))
-                {
-                    Error($"Tried to register state with id '{id}', but it is already registered.");
-                    return;
-                }
-        
-                _states[id] = new State(constructor);
-            }
         }
 
         public void OnUnregistered()
@@ -293,6 +278,19 @@ namespace JordanTama.StateMachine
             return _states.Keys;
         }
 
+        public void Initialize(StateConstructor rootState)
+        {
+            if (Initialized)
+            {
+                Error($"Trying to add state '{rootState.Id}' but it is already initialized.");
+                return;
+            }
+
+            RegisterConstructor(rootState);
+            ChangeState(rootState.Id);
+            Initialized = true;
+        }
+
         #endregion
         
         #region Private methods
@@ -303,6 +301,8 @@ namespace JordanTama.StateMachine
             var machine = new Machine();
             Locator.Register(machine);
         }
+
+        private static void Error(string error) => Logger.Error(nameof(Machine), error);
         
         private bool TryGetState(string id, out State state)
         {
@@ -365,8 +365,21 @@ namespace JordanTama.StateMachine
             else
                 state.OnEnter?.Invoke(fromState);
         }
-
-        private static void Error(string error) => Logger.Error(nameof(Machine), error);
+        
+        private void RegisterConstructor(StateConstructor constructor)
+        {
+            foreach (var child in constructor.Children)
+                RegisterConstructor(child);
+                
+            string id = constructor.Id;
+            if (_states.ContainsKey(id))
+            {
+                Error($"Tried to register state with id '{id}', but it is already registered.");
+                return;
+            }
+        
+            _states[id] = new State(constructor);
+        }
         
         #endregion
     }
