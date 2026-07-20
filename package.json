@@ -6,7 +6,6 @@
   "unity": "2022.3",
   "unityRelease": "22f1",
   "dependencies": {
-    "com.jordantama.logging": "0.1.0",
     "com.jordantama.services": "0.1.0"
   },
   "author": {

@@ -5,7 +5,6 @@ using System.Reflection;
 using Cysharp.Threading.Tasks;
 using Services;
 using UnityEngine;
-using Logger = Logging.Logger;
 
 namespace JordanTama.StateMachine
 {
@@ -302,7 +301,7 @@ namespace JordanTama.StateMachine
             Locator.Register(machine);
         }
 
-        private static void Error(string error) => Logger.Error(nameof(Machine), error);
+        private static void Error(string error) => Debug.LogError(error);
         
         private bool TryGetState(string id, out State state)
         {
