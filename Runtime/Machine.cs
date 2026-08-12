@@ -8,7 +8,7 @@ using UnityEngine;
 
 namespace JordanTama.StateMachine
 {
-    public class Machine : IServiceStandard
+    public class Machine : IService
     {
         public event StateChange OnStateChangeComplete;
         
@@ -24,10 +24,12 @@ namespace JordanTama.StateMachine
         {
             TestMode = testMode;
         }
+        
+        // ================================
+        // IService
+        // ================================
 
-        #region IServiceStandard Implementation
-
-        public void OnRegistered()
+        public async UniTask OnRegistered()
         {
             // Create the initial state
             var baseStateConstructor = new StateConstructor(Constants.ROOT_STATE_NAME);
@@ -87,11 +89,7 @@ namespace JordanTama.StateMachine
             if (attributedMethods.Count > 0)
                 Error($"Missing dependencies: {string.Join(", ", attributedMethods.Select(GetDependency))}");
             
-            RegisterConstructor(baseStateConstructor);
-
-            // Begin the state machine
-            ChangeState(Constants.ROOT_STATE_NAME);
-            Initialized = true;
+            await Initialize(baseStateConstructor);
             return;
 
             IEnumerable<Type> GetTypes(Assembly assembly)
@@ -138,67 +136,14 @@ namespace JordanTama.StateMachine
             }
         }
 
-        public void OnUnregistered()
+        public async UniTask OnUnregistered()
         {
-            ChangeState(Constants.ROOT_STATE_NAME);
+            await ChangeState(Constants.ROOT_STATE_NAME);
         }
-
-        #endregion
 
         #region Public Methods
-
-        public void ChangeState(string to)
-        {
-            if (!TryGetState(to, out var toState))
-            {
-                Error($"Changing state but could not find state '{to}'.");
-                return;
-            }
-
-            // If we're initializing
-            if (_currentState == null)
-            {
-                TransitionToChild(toState);
-                OnStateChangeComplete?.Invoke(null, to);
-                return;
-            }
-            
-            var fromState = _currentState;
-
-            // Get the absolute paths for the current and target states
-            var fromPath = GetPath(fromState).ToList();
-            var toPath = GetPath(toState).ToList();
-
-            // Get the indices of the nearest shared parent
-            int sharedParentIndexInFrom = fromPath.FindIndex(toPath.Contains);
-            if (sharedParentIndexInFrom < 0)
-            {
-                Error($"Failed transition. Could not find common parent of {fromState.Id} and {to}.");
-                return;
-            }
-
-            int sharedParentIndexInTo = toPath.FindIndex(state => state.Equals(fromPath[sharedParentIndexInFrom]));
-            
-            // Remove all states above and including the shared parent
-            fromPath.RemoveRange(sharedParentIndexInFrom + 1, fromPath.Count - sharedParentIndexInFrom - 1);
-            toPath.RemoveRange(sharedParentIndexInTo + 1, toPath.Count - sharedParentIndexInTo - 1);
-            
-            // Reverse the 'to' path
-            toPath.Reverse();
-
-            // Traverse through parents until we're at a child of the shared parent
-            for (int i = 0; i < fromPath.Count - 1; i++)
-                TransitionToParent(fromPath[i + 1]);
-            
-            // Traverse through children until we arrive at the target state
-            for (int i = 0; i < toPath.Count - 1; i++)
-                TransitionToChild(toPath[i + 1]);
-            
-            // Once we've arrived, invoke the state changed event
-            OnStateChangeComplete?.Invoke(fromState.Id, to);
-        }
         
-        public async UniTask ChangeStateAsync(string to)
+        public async UniTask ChangeState(string to)
         {
             if (!TryGetState(to, out var toState))
             {
@@ -209,7 +154,7 @@ namespace JordanTama.StateMachine
             // If we're initializing
             if (_currentState == null)
             {
-                await TransitionToChildAsync(toState);
+                await TransitionToChild(toState);
                 OnStateChangeComplete?.Invoke(null, to);
                 return;
             }
@@ -239,11 +184,11 @@ namespace JordanTama.StateMachine
 
             // Traverse through parents until we're at a child of the shared parent
             for (int i = 0; i < fromPath.Count - 1; i++)
-                await TransitionToParentAsync(fromPath[i + 1]);
+                await TransitionToParent(fromPath[i + 1]);
             
             // Traverse through children until we arrive at the target state
             for (int i = 0; i < toPath.Count - 1; i++)
-                await TransitionToChildAsync(toPath[i + 1]);
+                await TransitionToChild(toPath[i + 1]);
             
             // Once we've arrived, invoke the state changed event
             OnStateChangeComplete?.Invoke(fromState.Id, to);
@@ -256,11 +201,6 @@ namespace JordanTama.StateMachine
             
             Error($"No state with Id {stateId} registered.");
             return 0;
-        }
-
-        public bool StateExists(string state)
-        {
-            return TryGetState(state, out _);
         }
 
         public StateInfo GetStateInfo(string stateName)
@@ -277,7 +217,7 @@ namespace JordanTama.StateMachine
             return _states.Keys;
         }
 
-        public void Initialize(StateConstructor rootState)
+        public async UniTask Initialize(StateConstructor rootState)
         {
             if (Initialized)
             {
@@ -286,7 +226,7 @@ namespace JordanTama.StateMachine
             }
 
             RegisterConstructor(rootState);
-            ChangeState(rootState.Id);
+            await ChangeState(rootState.Id);
             Initialized = true;
         }
 
@@ -298,7 +238,7 @@ namespace JordanTama.StateMachine
         private static void Initialize()
         {
             var machine = new Machine();
-            Locator.Register(machine);
+            Locator.Register(machine).Forget();
         }
 
         private static void Error(string error) => Debug.LogError(error);
@@ -329,40 +269,21 @@ namespace JordanTama.StateMachine
             return parent;
         }
 
-        private void TransitionToParent(State state)
+        private async UniTask TransitionToParent(State state)
         {
-            // We're exiting a state
-            _currentState.OnExit?.Invoke(state.Id);
-            _currentState = state;
-        }
-
-        private void TransitionToChild(State state)
-        {
-            // We're entering a state
-            var fromState = _currentState;
-            _currentState = state;
-            state.OnEnter?.Invoke(fromState);
-        }
-
-        private async UniTask TransitionToParentAsync(State state)
-        {
-            if (_currentState.OnExitAsync != null)
-                await _currentState.OnExitAsync.Invoke(state);
-            else
-                _currentState.OnExit?.Invoke(state);
+            if (_currentState.OnExit != null)
+                await _currentState.OnExit.Invoke(state);
             
             _currentState = state;
         }
 
-        private async UniTask TransitionToChildAsync(State state)
+        private async UniTask TransitionToChild(State state)
         {
             var fromState = _currentState;
             _currentState = state;
 
-            if (state.OnEnterAsync != null)
-                await state.OnEnterAsync.Invoke(fromState);
-            else
-                state.OnEnter?.Invoke(fromState);
+            if (state.OnEnter != null)
+                await state.OnEnter.Invoke(fromState);
         }
         
         private void RegisterConstructor(StateConstructor constructor)

@@ -273,7 +273,7 @@ namespace JordanTama.StateMachine.Editor
         private VisualElement CreateStateLink(string state)
         {
             if (string.IsNullOrEmpty(state) || !Locator.Get<Machine>(out var machine))
-                return default;
+                return null;
 
             bool isCurrentState = machine.CurrentStateId == state;
 
@@ -347,11 +347,7 @@ namespace JordanTama.StateMachine.Editor
                 switch (evt.newValue)
                 {
                     case "Change State":
-                        Locator.Get<Machine>().ChangeState(state);
-                        break;
-
-                    case "Change State Async":
-                        Locator.Get<Machine>().ChangeStateAsync(state).Forget();
+                        Locator.Get<Machine>().ChangeState(state).Forget();
                         break;
                 }
 

@@ -50,7 +50,7 @@ namespace Tests.Editor
             if (!Locator.Get(out _machine))
             {
                 _machine = new Machine(testMode: true);
-                Locator.Register(_machine);
+                yield return Locator.Register(_machine);
             }
             
             float timeoutTime = Time.realtimeSinceStartup + TIMEOUT;
@@ -63,31 +63,31 @@ namespace Tests.Editor
         public IEnumerator StateChangeTest()
         {
             // Make sure we're on A_1
-            AssertChange(A_1_NAME);
+            yield return AssertChange(A_1_NAME);
             
             // A_1 -> A_2
-            AssertChange(A_2_NAME);
+            yield return AssertChange(A_2_NAME);
 
             // A_2 -> A_1
-            AssertChange(A_1_NAME);
+            yield return AssertChange(A_1_NAME);
             
             // A_1 -> B
-            AssertChange(B_NAME);
+            yield return AssertChange(B_NAME);
             
             // B_1 -> C_1 (directly)
-            AssertChange(C_1_NAME);
+            yield return AssertChange(C_1_NAME);
             
             // C_1 -> A
-            AssertChange(A_NAME);
+            yield return AssertChange(A_NAME);
             
             // A_1 -> C
-            AssertChange(C_NAME);
+            yield return AssertChange(C_NAME);
 
             yield break;
 
-            void AssertChange(string id)
+            IEnumerator AssertChange(string id)
             {
-                _machine.ChangeState(id);
+                yield return _machine.ChangeState(id).ToCoroutine();
                 Assert.AreEqual(id, _machine.CurrentStateId);
             }
         }
@@ -122,7 +122,7 @@ namespace Tests.Editor
             {
                 string fromState = _machine.CurrentStateId;
                 
-                var changeTask = _machine.ChangeStateAsync(id);
+                var changeTask = _machine.ChangeState(id);
                 var awaiter = changeTask.GetAwaiter();
 
                 yield return null;
@@ -159,9 +159,9 @@ namespace Tests.Editor
         private static void ConstructStateMachineA(StateConstructor baseState)
         {
             // Create state 'A'
-            var aState = new StateConstructor(A_NAME, OnEnter, OnExit, OnEnterAsync, OnExitAsync);
-            aState.AddState(new StateConstructor(A_1_NAME, OnEnter, OnExit, OnEnterAsync, OnExitAsync));
-            aState.AddState(new StateConstructor(A_2_NAME, OnEnter, OnExit, OnEnterAsync, OnExitAsync));
+            var aState = new StateConstructor(A_NAME, OnEnterAsync, OnExitAsync);
+            aState.AddState(new StateConstructor(A_1_NAME, OnEnterAsync, OnExitAsync));
+            aState.AddState(new StateConstructor(A_2_NAME, OnEnterAsync, OnExitAsync));
         
             // Add to the base state
             baseState.AddState(aState);
@@ -170,8 +170,8 @@ namespace Tests.Editor
         [ConstructStateMachine(A_NAME, TEST_PRIORITY)]
         private static void ConstructStateMachineB(StateConstructor baseState)
         {
-            var bState = new StateConstructor(B_NAME, OnEnter, OnExit, OnEnterAsync, OnExitAsync);
-            bState.AddState(new StateConstructor(B_1_NAME, OnEnter, OnExit, OnEnterAsync, OnExitAsync));
+            var bState = new StateConstructor(B_NAME, OnEnterAsync, OnExitAsync);
+            bState.AddState(new StateConstructor(B_1_NAME, OnEnterAsync, OnExitAsync));
             
             baseState.AddState(bState);
         }
@@ -179,8 +179,8 @@ namespace Tests.Editor
         [ConstructStateMachine(B_NAME, TEST_PRIORITY)]
         private static void ConstructStateMachineC(StateConstructor baseState)
         {
-            var state = new StateConstructor(C_NAME, OnEnter, OnExit, OnEnterAsync, OnExitAsync);
-            state.AddState(new StateConstructor(C_1_NAME, OnEnter, OnExit, OnEnterAsync, OnExitAsync));
+            var state = new StateConstructor(C_NAME, OnEnterAsync, OnExitAsync);
+            state.AddState(new StateConstructor(C_1_NAME, OnEnterAsync, OnExitAsync));
         
             baseState.AddState(state);
         }
@@ -189,28 +189,18 @@ namespace Tests.Editor
         
         #region State Listeners
 
-        private static void OnEnter(string from)
-        {
-            Debug.Log(EnterLog(from));
-        }
-
-        private static void OnExit(string to)
-        {
-            Debug.Log(ExitLog(to));
-        }
-
         private static async UniTask OnEnterAsync(string from)
         {
             Debug.Log(EnterLog(from));
-            Debug.Log("Waiting one second...");
-            await UniTask.Delay(1000);
+            Debug.Log("Waiting short delay...");
+            await UniTask.Delay(10);
         }
 
         private static async UniTask OnExitAsync(string to)
         {
             Debug.Log(ExitLog(to));
-            Debug.Log("Waiting one second...");
-            await UniTask.Delay(1000);
+            Debug.Log("Waiting short delay...");
+            await UniTask.Delay(10);
         }
         
         #endregion

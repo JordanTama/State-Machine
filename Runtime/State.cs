@@ -10,10 +10,8 @@ namespace JordanTama.StateMachine
         public string Id { get; }
         public string Parent { get; }
         
-        public StateEnter OnEnter { get; }
-        public StateExit OnExit { get; }
-        public StateEnterAsync OnEnterAsync { get; }
-        public StateExitAsync OnExitAsync { get; }
+        public StateEnterAsync OnEnter { get; }
+        public StateExitAsync OnExit { get; }
 
         public IReadOnlyList<string> Children => _children;
 
@@ -25,11 +23,8 @@ namespace JordanTama.StateMachine
             Id = constructor.Id;
             Parent = constructor.Parent?.Id ?? "";
             
-            OnEnter = constructor.OnEnter;
-            OnExit = constructor.OnExit;
-            
-            OnEnterAsync = constructor.OnEnterAsync;
-            OnExitAsync = constructor.OnExitAsync;
+            OnEnter = constructor.OnEnterAsync;
+            OnExit = constructor.OnExitAsync;
         }
 
         public static implicit operator string(State state) => state.Id;
