@@ -10,12 +10,14 @@ namespace JordanTama.StateMachine
 {
     public class Machine : IService
     {
-        public event StateChange OnStateChangeComplete;
-        
         private State _currentState;
         private readonly Dictionary<string, State> _states = new();
 
-        public bool Initialized { get; private set; }
+        private string _queued;
+        private bool _isTransitioning;
+
+        public event Initialized Initialized;
+        
         public string CurrentStateId => _currentState?.Id ?? "";
         
         private bool TestMode { get; }
@@ -141,58 +143,9 @@ namespace JordanTama.StateMachine
             await ChangeState(Constants.ROOT_STATE_NAME);
         }
 
-        #region Public Methods
-        
-        public async UniTask ChangeState(string to)
-        {
-            if (!TryGetState(to, out var toState))
-            {
-                Error($"Changing state but could not find state '{to}'.");
-                return;
-            }
-
-            // If we're initializing
-            if (_currentState == null)
-            {
-                await TransitionToChild(toState);
-                OnStateChangeComplete?.Invoke(null, to);
-                return;
-            }
-            
-            var fromState = _currentState;
-
-            // Get the absolute paths for the current and target states
-            var fromPath = GetPath(fromState).ToList();
-            var toPath = GetPath(toState).ToList();
-
-            // Get the indices of the nearest shared parent
-            int sharedParentIndexInFrom = fromPath.FindIndex(toPath.Contains);
-            if (sharedParentIndexInFrom < 0)
-            {
-                Error($"Failed transition. Could not find common parent of {fromState.Id} and {to}.");
-                return;
-            }
-
-            int sharedParentIndexInTo = toPath.FindIndex(state => state.Equals(fromPath[sharedParentIndexInFrom]));
-            
-            // Remove all states above and including the shared parent
-            fromPath.RemoveRange(sharedParentIndexInFrom + 1, fromPath.Count - sharedParentIndexInFrom - 1);
-            toPath.RemoveRange(sharedParentIndexInTo + 1, toPath.Count - sharedParentIndexInTo - 1);
-            
-            // Reverse the 'to' path
-            toPath.Reverse();
-
-            // Traverse through parents until we're at a child of the shared parent
-            for (int i = 0; i < fromPath.Count - 1; i++)
-                await TransitionToParent(fromPath[i + 1]);
-            
-            // Traverse through children until we arrive at the target state
-            for (int i = 0; i < toPath.Count - 1; i++)
-                await TransitionToChild(toPath[i + 1]);
-            
-            // Once we've arrived, invoke the state changed event
-            OnStateChangeComplete?.Invoke(fromState.Id, to);
-        }
+        // ================================
+        // Public Methods
+        // ================================
 
         public int GetChildCount(string stateId)
         {
@@ -219,7 +172,7 @@ namespace JordanTama.StateMachine
 
         public async UniTask Initialize(StateConstructor rootState)
         {
-            if (Initialized)
+            if (_states.Count > 0)
             {
                 Error($"Trying to add state '{rootState.Id}' but it is already initialized.");
                 return;
@@ -227,12 +180,33 @@ namespace JordanTama.StateMachine
 
             RegisterConstructor(rootState);
             await ChangeState(rootState.Id);
-            Initialized = true;
+            
+            Initialized?.Invoke();
+            Initialized = null;
         }
 
-        #endregion
-        
-        #region Private methods
+        public async UniTask ChangeState(string to)
+        {
+            if (_isTransitioning)
+                return;
+
+            await ChangeStateInternal(to);
+        }
+
+        public void ChangeOrQueueState(string to)
+        {
+            if (!_isTransitioning)
+            {
+                ChangeState(to).Forget();
+                return;
+            }
+
+            _queued = to;
+        }
+
+        // ================================
+        // Private Methods
+        // ================================
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
         private static void Initialize()
@@ -246,6 +220,69 @@ namespace JordanTama.StateMachine
         private bool TryGetState(string id, out State state)
         {
             return _states.TryGetValue(id, out state);
+        }
+        
+        private async UniTask ChangeStateInternal(string to)
+        {
+            if (!TryGetState(to, out var toState))
+            {
+                Error($"Changing state but could not find state '{to}'.");
+                return;
+            }
+
+            _isTransitioning = true;
+            try
+            {
+                // If we're initializing
+                if (_currentState == null)
+                {
+                    await TransitionToChild(toState);
+                    return;
+                }
+
+                var fromState = _currentState;
+
+                // Get the absolute paths for the current and target states
+                var fromPath = GetPath(fromState).ToList();
+                var toPath = GetPath(toState).ToList();
+
+                // Get the indices of the nearest shared parent
+                int sharedParentIndexInFrom = fromPath.FindIndex(toPath.Contains);
+                if (sharedParentIndexInFrom < 0)
+                {
+                    Error($"Failed transition. Could not find common parent of {fromState.Id} and {to}.");
+                    return;
+                }
+
+                int sharedParentIndexInTo = toPath.FindIndex(state => state.Equals(fromPath[sharedParentIndexInFrom]));
+
+                // Remove all states above and including the shared parent
+                fromPath.RemoveRange(sharedParentIndexInFrom + 1, fromPath.Count - sharedParentIndexInFrom - 1);
+                toPath.RemoveRange(sharedParentIndexInTo + 1, toPath.Count - sharedParentIndexInTo - 1);
+
+                // Reverse the 'to' path
+                toPath.Reverse();
+
+                // Traverse through parents until we're at a child of the shared parent
+                for (int i = 0; i < fromPath.Count - 1; i++)
+                    await TransitionToParent(fromPath[i + 1]);
+
+                // Traverse through children until we arrive at the target state
+                for (int i = 0; i < toPath.Count - 1; i++)
+                    await TransitionToChild(toPath[i + 1]);
+
+                // We've arrived
+                if (!string.IsNullOrEmpty(_queued))
+                {
+                    to = _queued;
+                    _queued = null;
+                    await ChangeStateInternal(to);
+                }
+            }
+            finally
+            {
+                _isTransitioning = false;
+            }
         }
 
         private IEnumerable<State> GetPath(State state)
@@ -300,7 +337,5 @@ namespace JordanTama.StateMachine
         
             _states[id] = new State(constructor);
         }
-        
-        #endregion
     }
 }

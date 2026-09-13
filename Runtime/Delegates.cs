@@ -6,5 +6,5 @@ namespace JordanTama.StateMachine
 
     public delegate UniTask StateExitAsync(string to);
 
-    public delegate void StateChange(string from, string to);
+    public delegate void Initialized();
 }

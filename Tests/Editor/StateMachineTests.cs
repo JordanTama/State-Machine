@@ -46,17 +46,20 @@ namespace Tests.Editor
                 var awaiter = task.GetAwaiter();
                 yield return new WaitUntil(() => awaiter.IsCompleted);
             }
+
+            bool initialized = false;
             
             if (!Locator.Get(out _machine))
             {
                 _machine = new Machine(testMode: true);
+                _machine.Initialized += () => { initialized = true; };
                 yield return Locator.Register(_machine);
             }
             
             float timeoutTime = Time.realtimeSinceStartup + TIMEOUT;
-            yield return new WaitUntil(() => _machine.Initialized || Time.realtimeSinceStartup > timeoutTime);
+            yield return new WaitUntil(() => initialized || Time.realtimeSinceStartup > timeoutTime);
 
-            Assert.IsTrue(_machine.Initialized, $"Machine failed to be initialized before the {TIMEOUT} second timeout.");
+            Assert.IsTrue(initialized, $"Machine failed to be initialized before the {TIMEOUT} second timeout.");
         }
 
         [UnityTest]
