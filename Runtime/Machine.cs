@@ -243,7 +243,8 @@ namespace JordanTama.StateMachine
                 if (_currentState == null)
                 {
                     await TransitionToChild(to);
-                    return await TryTransitionToQueued();
+                    await TryTransitionToQueued();
+                    return TransitionResponse.Completed;
                 }
 
                 var fromState = _currentState;
@@ -278,7 +279,8 @@ namespace JordanTama.StateMachine
                     await TransitionToChild(toPath[i + 1]);
 
                 // We've arrived
-                return await TryTransitionToQueued();
+                await TryTransitionToQueued();
+                return TransitionResponse.Completed;
             }
             finally
             {
@@ -286,21 +288,21 @@ namespace JordanTama.StateMachine
             }
         }
 
-        private async UniTask<TransitionResponse> TryTransitionToQueued()
+        private async UniTask TryTransitionToQueued()
         {
             if (string.IsNullOrEmpty(_queued))
-                return TransitionResponse.Completed;
+                return;
 
             string id = _queued;
             _queued = null;
-            
-            bool valid = TryGetState(id, out var state);
 
-            if (valid)
-                return await ChangeStateInternal(state);
+            if (TryGetState(id, out var state))
+            {
+                await ChangeStateInternal(state);
+                return;
+            }
 
             Error($"Invalid queued state '{id}'.");
-            return TransitionResponse.Rejected;
         }
 
         private IEnumerable<State> GetPath(State state)
