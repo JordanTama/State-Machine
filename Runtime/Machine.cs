@@ -16,7 +16,22 @@ namespace JordanTama.StateMachine
         private string _queued;
         private bool _isTransitioning;
 
-        public event Initialized Initialized;
+        private bool _isInitialized;
+        private Initialized _initialized;
+        public event Initialized Initialized
+        {
+            add
+            {
+                if (_isInitialized)
+                {
+                    value?.Invoke();
+                    return;
+                }
+
+                _initialized += value;
+            }
+            remove => _initialized -= value;
+        }
         
         public string CurrentStateId => _currentState?.Id ?? "";
         
@@ -180,28 +195,24 @@ namespace JordanTama.StateMachine
 
             RegisterConstructor(rootState);
             await ChangeState(rootState.Id);
-            
-            Initialized?.Invoke();
-            Initialized = null;
+
+            _isInitialized = true;
+            _initialized?.Invoke();
         }
 
-        public async UniTask ChangeState(string to)
+        public async UniTask<TransitionResponse> ChangeState(string to)
         {
             if (_isTransitioning)
-                return;
-
-            await ChangeStateInternal(to);
-        }
-
-        public void ChangeOrQueueState(string to)
-        {
-            if (!_isTransitioning)
             {
-                ChangeState(to).Forget();
-                return;
+                _queued = to;
+                return TransitionResponse.Pending;
             }
 
-            _queued = to;
+            if (TryGetState(to, out var toState))
+                return await ChangeStateInternal(toState);
+            
+            Error($"Could not find state '{to}'.");
+            return TransitionResponse.Rejected;
         }
 
         // ================================
@@ -216,42 +227,37 @@ namespace JordanTama.StateMachine
         }
 
         private static void Error(string error) => Debug.LogError(error);
-        
+
         private bool TryGetState(string id, out State state)
         {
             return _states.TryGetValue(id, out state);
         }
         
-        private async UniTask ChangeStateInternal(string to)
+        private async UniTask<TransitionResponse> ChangeStateInternal(State to)
         {
-            if (!TryGetState(to, out var toState))
-            {
-                Error($"Changing state but could not find state '{to}'.");
-                return;
-            }
-
             _isTransitioning = true;
+            
             try
             {
                 // If we're initializing
                 if (_currentState == null)
                 {
-                    await TransitionToChild(toState);
-                    return;
+                    await TransitionToChild(to);
+                    return await TryTransitionToQueued();
                 }
 
                 var fromState = _currentState;
 
                 // Get the absolute paths for the current and target states
                 var fromPath = GetPath(fromState).ToList();
-                var toPath = GetPath(toState).ToList();
+                var toPath = GetPath(to).ToList();
 
                 // Get the indices of the nearest shared parent
                 int sharedParentIndexInFrom = fromPath.FindIndex(toPath.Contains);
                 if (sharedParentIndexInFrom < 0)
                 {
-                    Error($"Failed transition. Could not find common parent of {fromState.Id} and {to}.");
-                    return;
+                    Error($"Failed transition. Could not find common parent of {fromState.Id} and {to.Id}.");
+                    return TransitionResponse.Rejected;
                 }
 
                 int sharedParentIndexInTo = toPath.FindIndex(state => state.Equals(fromPath[sharedParentIndexInFrom]));
@@ -272,17 +278,29 @@ namespace JordanTama.StateMachine
                     await TransitionToChild(toPath[i + 1]);
 
                 // We've arrived
-                if (!string.IsNullOrEmpty(_queued))
-                {
-                    to = _queued;
-                    _queued = null;
-                    await ChangeStateInternal(to);
-                }
+                return await TryTransitionToQueued();
             }
             finally
             {
                 _isTransitioning = false;
             }
+        }
+
+        private async UniTask<TransitionResponse> TryTransitionToQueued()
+        {
+            if (string.IsNullOrEmpty(_queued))
+                return TransitionResponse.Completed;
+
+            string id = _queued;
+            _queued = null;
+            
+            bool valid = TryGetState(id, out var state);
+
+            if (valid)
+                return await ChangeStateInternal(state);
+
+            Error($"Invalid queued state '{id}'.");
+            return TransitionResponse.Rejected;
         }
 
         private IEnumerable<State> GetPath(State state)
