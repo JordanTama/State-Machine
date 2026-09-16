@@ -26,7 +26,5 @@ namespace JordanTama.StateMachine
             OnEnter = constructor.OnEnterAsync;
             OnExit = constructor.OnExitAsync;
         }
-
-        public static implicit operator string(State state) => state.Id;
     }
 }

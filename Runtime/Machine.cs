@@ -246,7 +246,16 @@ namespace JordanTama.StateMachine
                     await TryTransitionToQueued();
                     return TransitionResponse.Completed;
                 }
-
+                
+                // We're 'reloading' a state (re-entering the state we're already in)
+                if (to == _currentState)
+                {
+                    await TransitionToParent(to);
+                    await TransitionToChild(to);
+                    await TryTransitionToQueued();
+                    return TransitionResponse.Completed;
+                }
+                
                 var fromState = _currentState;
 
                 // Get the absolute paths for the current and target states
@@ -329,7 +338,7 @@ namespace JordanTama.StateMachine
         private async UniTask TransitionToParent(State state)
         {
             if (_currentState.OnExit != null)
-                await _currentState.OnExit.Invoke(state);
+                await _currentState.OnExit.Invoke(state.Id);
             
             _currentState = state;
         }
@@ -340,7 +349,10 @@ namespace JordanTama.StateMachine
             _currentState = state;
 
             if (state.OnEnter != null)
-                await state.OnEnter.Invoke(fromState);
+            {
+                bool isRootEntry = fromState == null;
+                await state.OnEnter.Invoke(isRootEntry ? string.Empty : fromState.Id);
+            }
         }
         
         private void RegisterConstructor(StateConstructor constructor)
